@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="lib/node_modules/phaser/dist/phaser.js"></script>
+
+    <style>
+        canvas {
+            margin-left: auto;
+            margin-right: auto;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+    var config = {
+        type: Phaser.AUTO,
+        width: 896,
+        height: 512,
+        // width: 800,
+        // height: 600,
+        physics: {
+            default: 'arcade',
+            arcade: {
+                gravity: { y: 500 },
+                debug: false
+            }
+        },
+        scene: {
+            preload: preload,
+            create: create,
+            update: update
+        },
+        render: {
+            pixelArt: true
+        }
+    };
+
+    var score = 0;
+    var scoreText;
+
+    var game = new Phaser.Game(config);
+
+    function preload ()
+    {
+        this.load.image('sky', 'assets/sky.png');
+        this.load.image('ground', 'assets/platform.png');
+        this.load.image('star', 'assets/star.png');
+        this.load.image('bomb', 'assets/bomb.png');
+
+        this.load.image('horror', 'assets/horror.png');
+        this.load.image('brick', 'assets/brick.png');
+
+        this.load.image('ghost', 'assets/ghost_04.png');
+
+        this.load.spritesheet('dude',
+            'assets/dude.png',
+            { frameWidth: 32, frameHeight: 48 }
+        );
+
+        this.load.image("terrain", "assets/tilesets/Tileset.png");
+
+        this.load.tilemapTiledJSON("mappy", "./assets/maps/new_york.json");
+    }
+
+    function create ()
+    {
+        this.add.image(400, 300, 'sky').setScale(2);
+
+        let mappy = this.add.tilemap("mappy");
+
+        let terrain = mappy.addTilesetImage("Tileset", "terrain");
+
+
+        //Layers
+        let frontLayer = mappy.createStaticLayer("front", terrain, 0, 0);
+
+        //Sprite Spawn
+        let ghost = this.physics.add.sprite(100, 0, 'ghost').setScale(1);
+        ghost.setBounce(0.2);
+        ghost.setCollideWorldBounds(true);
+        ghost.body.setGravityY(50);
+
+
+        this.player = this.physics.add.sprite(100, 250, 'dude');
+
+        this.player.setBounce(0.2);
+        this.player.setCollideWorldBounds(true);
+        this.player.body.setGravityY(50);
+
+        this.anims.create({
+            key: 'left',
+            frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 3 }),
+            frameRate: 10,
+            repeat: -1
+        });
+
+        this.anims.create({
+            key: 'turn',
+            frames: [ { key: 'dude', frame: 4 } ],
+            frameRate: 20
+        });
+
+        this.anims.create({
+            key: 'right',
+            frames: this.anims.generateFrameNumbers('dude', { start: 5, end: 8 }),
+            frameRate: 10,
+            repeat: -1
+        });
+
+        this.stars = this.physics.add.group({
+            key: 'star',
+            repeat: 11,
+            setXY: { x: 12, y: 10, stepX: 70 }
+        });
+
+        this.stars.children.iterate(function (child) {
+
+            child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
+
+        });
+
+        this.bombs = this.physics.add.group();
+
+
+        //Map Collisions
+        this.physics.add.collider(ghost, frontLayer);
+        this.physics.add.collider(this.player, frontLayer);
+        this.physics.add.collider(this.stars, frontLayer);
+        this.physics.add.collider(this.player, this.stars, collectStar, null, this);
+
+        this.physics.add.collider(this.bombs, frontLayer);
+        this.physics.add.collider(this.player, this.bombs, hitBomb, null, this);
+            //by tile property
+        frontLayer.setCollisionByProperty({collides:true});
+        frontLayer.setCollisionByProperty({collides:"true"});
+
+            //by tile index
+
+
+        //Cursors
+        this.cursors = this.input.keyboard.createCursorKeys();
+
+        //Variables
+
+        scoreText = this.add.text(16, 16, 'score: 0', {fontSize: '32px', fill: '#000'});
+    }
+
+    function update ()
+    {
+        if (this.cursors.left.isDown)
+        {
+            this.player.setVelocityX(-160);
+
+            this.player.anims.play('left', true);
+        }
+        else if (this.cursors.right.isDown)
+        {
+            this.player.setVelocityX(160);
+
+            this.player.anims.play('right', true);
+        }
+        else
+        {
+            this.player.setVelocityX(0);
+
+            this.player.anims.play('turn');
+        }
+
+        if (this.cursors.up.isDown && this.player.body.blocked.down)
+        {
+            this.player.setVelocityY(-330);
+        }
+    }
+
+    function collectStar (player, star)
+    {
+        star.disableBody(true, true);
+
+        score += 10;
+        scoreText.setText('Score: ' + score);
+
+        if (this.stars.countActive(true) === 1)
+        {
+            this.stars.children.iterate(function (child) {
+                child.enableBody(true, child.x, 0, true, true);
+            });
+
+            var x = (player.x < 200) ? Phaser.Math.Between(200, 400) : Phaser.Math.Between(0, 200);
+
+            let bomb = this.bombs.create(x, 16, 'bomb');
+            console.log(bomb);
+
+            bomb.setBounce(1);
+            bomb.setCollideWorldBounds(true);
+            bomb.setVelocity(Phaser.Math.Between(-200, 200, 20), 20);
+        }
+        else {console.log(this.stars.countActive(true))}
+    }
+
+    function hitBomb (player, bomb)
+    {
+        this.physics.pause();
+
+        player.setTint(0xff0000);
+
+        player.anims.play('turn');
+
+        gameOver = true;
+    }
+
+
+</script>
+
+</body>
+</html>
